@@ -8,7 +8,7 @@ An end-to-end data engineering pipeline that simulates IoT sensor data from smar
 
 ## 📐 Architecture
 
-![Smart Street Lights Architecture](docs/architecture.png)
+![Smart Street Lights Architecture](architecture.png)
 
 | Stage | Component | Role |
 |---|---|---|
