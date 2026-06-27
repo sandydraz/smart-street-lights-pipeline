@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Street Lights Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0f1e; color: #e2e8f0; min-height: 100vh; }
+
+        header {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 18px 30px;
+            border-bottom: 2px solid #f59e0b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { color: #f59e0b; font-size: 20px; letter-spacing: 1px; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        #last-update { font-size: 12px; color: #64748b; }
+        .live-badge {
+            background: #22c55e22;
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+        /* Sim Controls */
+        .sim-bar {
+            background: #1e293b;
+            padding: 12px 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #334155;
+        }
+        .btn { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-start { background: #22c55e; color: white; }
+        .btn-stop { background: #ef4444; color: white; }
+        .sim-indicator {
+            display: flex; align-items: center; gap: 6px;
+            background: #0f172a; padding: 6px 14px; border-radius: 6px; font-size: 12px;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
+        .dot.running { background: #22c55e; animation: pulse 1s infinite; }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding: 24px 30px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1e293b, #162032);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid #f59e0b;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: -20px; right: -20px;
+            width: 80px; height: 80px;
+            background: #f59e0b11;
+            border-radius: 50%;
+        }
+        .stat-card h3 { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .stat-card .value { font-size: 30px; font-weight: 700; color: #f59e0b; }
+        .stat-card .sub { font-size: 11px; color: #475569; margin-top: 4px; }
+
+        /* Charts + Table Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 20px 30px;
+        }
+        .full-width { grid-column: 1 / -1; }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+        .card h2 {
+            font-size: 13px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h2 span { color: #f59e0b; }
+
+        /* Chart containers */
+        .chart-box { position: relative; height: 220px; }
+
+        /* Lights Grid */
+        .lights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .light-card {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #334155;
+            transition: border-color 0.3s;
+        }
+        .light-card.active { border-color: #22c55e44; }
+        .light-card.inactive { border-color: #ef444444; }
+        .light-icon { font-size: 22px; margin-bottom: 6px; }
+        .light-id { font-size: 11px; font-weight: bold; color: #e2e8f0; }
+        .light-loc { font-size: 10px; color: #475569; margin: 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .light-status {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-top: 4px;
+        }
+        .light-status.active { background: #22c55e22; color: #22c55e; }
+        .light-status.inactive { background: #ef444422; color: #ef4444; }
+
+        /* Readings Table */
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #0f172a; padding: 10px 12px; text-align: left; color: #64748b; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+        td { padding: 10px 12px; border-bottom: 1px solid #1e293b; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #162032; }
+        .badge {
+            padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold;
+        }
+        .badge.active { background: #22c55e22; color: #22c55e; }
+        .badge.inactive { background: #ef444422; color: #ef4444; }
+        .badge.motion { background: #3b82f622; color: #3b82f6; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🟡 Smart Street Lights — Dashboard</h1>
+    <div class="header-right">
+        <span class="live-badge">● LIVE</span>
+        <span id="last-update">Connecting...</span>
+    </div>
+</header>
+
+<div class="sim-bar">
+    <button class="btn btn-start" onclick="startSim()">▶ Start Simulation</button>
+    <button class="btn btn-stop" onclick="stopSim()">⏹ Stop Simulation</button>
+    <div class="sim-indicator">
+        <div class="dot" id="producer-dot"></div>
+        <span id="producer-label">Producer: --</span>
+    </div>
+    <div class="sim-indicator">
+        <div class="dot" id="consumer-dot"></div>
+        <span id="consumer-label">Consumer: --</span>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total Readings</h3>
+        <div class="value" id="total-readings">--</div>
+        <div class="sub">All time records</div>
+    </div>
+    <div class="stat-card">
+        <h3>Avg Light Level</h3>
+        <div class="value" id="avg-light">--</div>
+        <div class="sub">Across all sensors</div>
+    </div>
+    <div class="stat-card">
+        <h3>Max Light Level</h3>
+        <div class="value" id="max-light">--</div>
+        <div class="sub">Peak recorded</div>
+    </div>
+    <div class="stat-card">
+        <h3>Min Light Level</h3>
+        <div class="value" id="min-light">--</div>
+        <div class="sub">Lowest recorded</div>
+    </div>
+</div>
+
+<!-- Charts + Lights -->
+<div class="main-grid">
+
+    <!-- Light Level Distribution -->
+    <div class="card">
+        <h2><span>📊</span> Light Level Distribution</h2>
+        <div class="chart-box"><canvas id="barChart"></canvas></div>
+    </div>
+
+    <!-- Motion Detection Pie -->
+    <div class="card">
+        <h2><span>🔵</span> Motion Detection</h2>
+        <div class="chart-box"><canvas id="pieChart"></canvas></div>
+    </div>
+
+    <!-- Street Lights Status -->
+    <div class="card full-width">
+        <h2><span>💡</span> Street Lights Status</h2>
+        <div class="lights-grid" id="lights-grid">
+            <div style="color:#475569;font-size:13px">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Latest Readings Table -->
+    <div class="card full-width">
+        <h2><span>📋</span> Latest Readings</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Reading ID</th>
+                    <th>Location</th>
+                    <th>Light Level</th>
+                    <th>Motion</th>
+                    <th>Status</th>
+                    <th>Date & Time</th>
+                </tr>
+            </thead>
+            <tbody id="readings-table">
+                <tr><td colspan="6" style="text-align:center;color:#475569">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+const API = "http://127.0.0.1:8000/api";
+let barChart, pieChart;
+
+// ── Stats ──
+async function loadStats() {
+    const res = await fetch(`${API}/stats`);
+    const d = await res.json();
+    document.getElementById("total-readings").textContent = d.total_readings?.toLocaleString();
+    document.getElementById("avg-light").textContent = d.avg_light_level?.toFixed(1);
+    document.getElementById("max-light").textContent = d.max_light_level?.toFixed(1);
+    document.getElementById("min-light").textContent = d.min_light_level?.toFixed(1);
+}
+
+// ── Readings ──
+async function loadReadings() {
+    const res = await fetch(`${API}/readings`);
+    const data = await res.json();
+    const rows = data.data;
+
+    // Table
+    document.getElementById("readings-table").innerHTML = rows.map(r => `
+        <tr>
+            <td style="color:#f59e0b">${r.Reading_id}</td>
+            <td>${extractArea(r.Location)}</td>
+            <td><strong>${r.Light_level?.toFixed(1)}</strong></td>
+            <td><span class="badge ${r.Motion_detection == 1 ? 'motion' : ''}">${r.Motion_detection == 1 ? 'Detected' : r.Motion_detection == 0 ?'None' : '--'}</span></td>
+            <td><span class="badge ${r.Status?.toLowerCase()}">${r.Status}</span></td>
+            <td style="color:#64748b">${r.FullDate ? new Date(r.FullDate).toLocaleString() : '--'}</td>
+        </tr>
+    `).join("");
+
+    // Bar Chart — Light Level buckets
+    const buckets = { '0-20': 0, '21-40': 0, '41-60': 0, '61-80': 0, '81-100': 0 };
+    rows.forEach(r => {
+        const v = r.Light_level;
+        if (v <= 20) buckets['0-20']++;
+        else if (v <= 40) buckets['21-40']++;
+        else if (v <= 60) buckets['41-60']++;
+        else if (v <= 80) buckets['61-80']++;
+        else buckets['81-100']++;
+    });
+
+    if (barChart) barChart.destroy();
+    barChart = new Chart(document.getElementById("barChart"), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(buckets),
+            datasets: [{
+                label: 'Readings',
+                data: Object.values(buckets),
+                backgroundColor: '#f59e0b99',
+                borderColor: '#f59e0b',
+                borderWidth: 2,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+                y: { ticks: { color: '#64748b' }, grid: { color: '#334155' } }
+            }
+        }
+    });
+
+    // Pie Chart — Motion detection
+    const motionYes = rows.filter(r => r.Motion_detection == 1).length;
+    const motionNo = rows.length - motionYes;
+
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(document.getElementById("pieChart"), {
+        type: 'doughnut',
+        data: {
+            labels: ['Motion Detected', 'No Motion'],
+            datasets: [{
+                data: [motionYes, motionNo],
+                backgroundColor: ['#3b82f6cc', '#334155'],
+                borderColor: ['#3b82f6', '#475569'],
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#94a3b8', font: { size: 12 } } }
+            }
+        }
+    });
+}
+
+// ── Lights Grid ──
+async function loadLights() {
+    const res = await fetch(`${API}/lights`);
+    const data = await res.json();
+    document.getElementById("lights-grid").innerHTML = data.data.map(l => `
+        <div class="light-card ${l.Status?.toLowerCase()}">
+            <div class="light-icon">${l.Status?.toLowerCase() === 'active' ? '💡' : '🔴'}</div>
+            <div class="light-id">${l.Li_id}</div>
+            <div class="light-loc">${extractArea(l.Location)}</div>
+            <span class="light-status ${l.Status?.toLowerCase()}">${l.Status}</span>
+        </div>
+    `).join("");
+}
+
+// ── Simulation ──
+async function loadSimStatus() {
+    const res = await fetch(`${API}/simulation/status`);
+    const d = await res.json();
+
+    const pd = document.getElementById("producer-dot");
+    const cd = document.getElementById("consumer-dot");
+    pd.className = 'dot ' + (d.producer === 'running' ? 'running' : '');
+    cd.className = 'dot ' + (d.consumer === 'running' ? 'running' : '');
+    document.getElementById("producer-label").textContent = `Producer: ${d.producer}`;
+    document.getElementById("consumer-label").textContent = `Consumer: ${d.consumer}`;
+}
+
+async function startSim() {
+    await fetch(`${API}/simulation/start`, { method: "POST" });
+    setTimeout(loadSimStatus, 500);
+}
+async function stopSim() {
+    await fetch(`${API}/simulation/stop`, { method: "POST" });
+    setTimeout(loadSimStatus, 500);
+}
+
+// ── Helper ──
+function extractArea(location) {
+    if (!location) return '--';
+    return location.split('(')[0].trim();
+}
+
+// ── Load All ──
+async function loadAll() {
+    await Promise.all([loadStats(), loadReadings(), loadLights(), loadSimStatus()]);
+    document.getElementById("last-update").textContent =
+        "Last update: " + new Date().toLocaleTimeString();
+}
+
+loadAll();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
