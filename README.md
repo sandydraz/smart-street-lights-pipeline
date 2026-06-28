@@ -9,7 +9,7 @@ stages it in SQL Server, loads it incrementally into a Data Warehouse (Galaxy Sc
 
 ## △ Architecture
 
-![Smart Street Lights — Full System Architecture](docs/architecture.png)
+![Smart Street Lights — Full System Architecture](Architecture Diagram.png)
 
 > FastAPI backend added on top of the existing pipeline — exposes REST endpoints and serves a live dashboard.
 
