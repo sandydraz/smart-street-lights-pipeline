@@ -26,7 +26,7 @@ NUM_ADMINS      = 5
 NUM_TECHNICIANS = 10
 NUM_COMMANDS    = 200
 NUM_FAULTS      = 40
-NUM_READINGS    = 5000   # sensor readings
+NUM_READINGS    = 1500   # sensor readings
 NUM_TASKS       = 50     # maintenance tasks
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
